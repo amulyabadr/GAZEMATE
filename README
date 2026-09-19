@@ -53,18 +53,18 @@ GAZEMATE
  .gitignore
  README.md
 
- File                           Purpose                                                           |
+ File                           Purpose                                                           
  
- main.py                      Main program that integrates all modules and runs the system      |
- integrated_eye_detection.py  Detects the user's face, eyes and iris landmarks                  |
- integrated_gaze.py           Estimates gaze direction using eye and iris landmarks             |
- integrated_calibration.py    Performs gaze calibration and maps gaze coordinates to the screen |
- integrated_cursor.py         Converts gaze coordinates into mouse cursor movement              |
- integrated_dweell.py         Implements dwell-based clicking using gaze                        |
- integrated_keyboard.py       Provides an accessible virtual keyboard controlled using gaze     |
- integrated_text_speech.py    Converts entered text into speech                                 |
- dummy_keyboard.py            Simplified keyboard implementation used for testing               |
- test_cursor.py               Used to test cursor control functionality                         |
- test_dwell.py                Used to test dwell-click functionality                            |
- .gitignore                   Specifies files and folders that should not be tracked by Git     |
- README.md                    Contains project documentation, structure and usage information   |
+ main.py                      Main program that integrates all modules and runs the system      
+ integrated_eye_detection.py  Detects the user's face, eyes and iris landmarks                  
+ integrated_gaze.py           Estimates gaze direction using eye and iris landmarks             
+ integrated_calibration.py    Performs gaze calibration and maps gaze coordinates to the screen 
+ integrated_cursor.py         Converts gaze coordinates into mouse cursor movement              
+ integrated_dweell.py         Implements dwell-based clicking using gaze                        
+ integrated_keyboard.py       Provides an accessible virtual keyboard controlled using gaze     
+ integrated_text_speech.py    Converts entered text into speech                                 
+ dummy_keyboard.py            Simplified keyboard implementation used for testing               
+ test_cursor.py               Used to test cursor control functionality                         
+ test_dwell.py                Used to test dwell-click functionality                            
+ .gitignore                   Specifies files and folders that should not be tracked by Git     
+ README.md                    Contains project documentation, structure and usage information   
