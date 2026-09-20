@@ -3,35 +3,70 @@ import pyautogui
 
 class CursorController:
 
-    def __init__(self, smoothing=0.1):
+    def __init__(self, smoothing=0.25):
 
         self.smoothing = smoothing
-        self.current_x = None
-        self.current_y = None
+
+        self.current_x = 0.5
+        self.current_y = 0.5
+
+        self.screen_width, self.screen_height = pyautogui.size()
 
     def move_cursor(self, x, y):
 
-        screen_width, screen_height = pyautogui.size()
+        # Keep cursor away from screen edges
+        x = max(0.02, min(0.98, x))
+        y = max(0.02, min(0.98, y))
 
-        target_x = x * screen_width
-        target_y = y * screen_height
+        # Smooth cursor movement
 
-        if self.current_x is None:
+        self.current_x = (
+            self.current_x
+            + self.smoothing * (x - self.current_x)
+        )
 
-            self.current_x = target_x
-            self.current_y = target_y
+        self.current_y = (
+            self.current_y
+            + self.smoothing * (y - self.current_y)
+        )
 
-        else:
+        # Convert normalized coordinates
+        # to screen coordinates
 
-            self.current_x += self.smoothing * (
-                target_x - self.current_x
-            )
+        screen_x = int(
+            self.current_x * (self.screen_width - 1)
+        )
 
-            self.current_y += self.smoothing * (
-                target_y - self.current_y
-            )
+        screen_y = int(
+            self.current_y * (self.screen_height - 1)
+        )
+
+        # Keep actual mouse position away from corners
+
+        screen_x = max(
+            10,
+            min(self.screen_width - 10, screen_x)
+        )
+
+        screen_y = max(
+            10,
+            min(self.screen_height - 10, screen_y)
+        )
 
         pyautogui.moveTo(
-            int(self.current_x),
-            int(self.current_y)
+            screen_x,
+            screen_y,
+            duration=0
         )
+
+
+if __name__ == "__main__":
+
+    print("Cursor Controller Test")
+
+    controller = CursorController()
+
+    controller.move_cursor(0.5, 0.5)
+
+    print("Cursor moved to screen center.")
+    

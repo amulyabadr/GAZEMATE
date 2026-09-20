@@ -1,6 +1,7 @@
 import cv2
 import mediapipe as mp
 import threading
+import tkinter as tk
 
 from integrated_eye_detection import detect_face_and_eyes
 from integrated_gaze import estimate_gaze
@@ -18,20 +19,13 @@ class GazeMate:
 
         self.calibration = GazeCalibration()
 
-        # Reduced responsiveness for demonstration
-        self.cursor = CursorController(
-            smoothing=0.10
-        )
+        self.cursor = CursorController()
 
-        # Slower dwell click for demonstration
         self.dwell = DwellClick(
-            dwell_time=3.5,
-            movement_threshold=0.12
+            dwell_time=2.0
         )
 
         self.keyboard = None
-
-        self.frame_count = 0
 
     def eye_tracking(self):
 
@@ -51,8 +45,8 @@ class GazeMate:
             static_image_mode=False,
             max_num_faces=1,
             refine_landmarks=True,
-            min_detection_confidence=0.6,
-            min_tracking_confidence=0.6
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
         ) as face_mesh:
 
             while self.running:
@@ -76,21 +70,6 @@ class GazeMate:
                     face_mesh
                 )
 
-                self.frame_count += 1
-
-                # Process fewer frames in this demonstration
-                if self.frame_count % 3 != 0:
-
-                    cv2.imshow(
-                        "GazeMate Basic Demonstration",
-                        frame
-                    )
-
-                    if cv2.waitKey(1) & 0xFF == ord("q"):
-                        self.running = False
-
-                    continue
-
                 if (
                     face_detected
                     and iris_detected
@@ -107,10 +86,6 @@ class GazeMate:
 
                         gaze_x, gaze_y = gaze
 
-                        # Reduce gaze precision
-                        gaze_x = round(gaze_x, 1)
-                        gaze_y = round(gaze_y, 1)
-
                         screen_position = (
                             self.calibration.map_gaze(
                                 gaze_x,
@@ -121,6 +96,12 @@ class GazeMate:
                         if screen_position is not None:
 
                             screen_x, screen_y = screen_position
+
+                            print(
+                                f"Cursor: "
+                                f"{screen_x:.2f}, "
+                                f"{screen_y:.2f}"
+                            )
 
                             self.cursor.move_cursor(
                                 screen_x,
@@ -133,11 +114,12 @@ class GazeMate:
                             )
 
                 cv2.imshow(
-                    "GazeMate Basic Demonstration",
+                    "GazeMate Eye Tracking",
                     frame
                 )
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
+
                     self.running = False
 
         camera.release()
@@ -145,9 +127,9 @@ class GazeMate:
 
     def start(self):
 
-        print("Starting GazeMate basic demonstration...")
+        print("Starting GazeMate...")
 
-        print("Starting limited calibration...")
+        print("Starting calibration...")
 
         if not self.calibration.calibrate():
 
@@ -157,7 +139,7 @@ class GazeMate:
 
         print("Calibration completed.")
 
-        print("Opening basic virtual keyboard...")
+        print("Opening virtual keyboard...")
 
         self.keyboard = AccessibleVirtualKeyboard()
 

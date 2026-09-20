@@ -13,23 +13,26 @@ class GazeCalibration:
 
     def __init__(self):
 
-        self.screen_width, self.screen_height = (
-            pyautogui.size()
-        )
+        self.screen_width, self.screen_height = pyautogui.size()
 
-        self.save_path = (
-            "calibration_data/calibration_data.json"
-        )
+        self.save_path = "calibration_data/calibration_data.json"
 
-        # Reduced calibration points
+        # ----------------------------------------------------
+        # 9-point calibration pattern
+        # ----------------------------------------------------
+
         self.points = [
+            (0.10, 0.10),
+            (0.50, 0.10),
+            (0.90, 0.10),
 
-            (0.20, 0.20),
-
+            (0.10, 0.50),
             (0.50, 0.50),
+            (0.90, 0.50),
 
-            (0.80, 0.80)
-
+            (0.10, 0.90),
+            (0.50, 0.90),
+            (0.90, 0.90)
         ]
 
         self.mapping_x = None
@@ -41,17 +44,13 @@ class GazeCalibration:
 
         if not camera.isOpened():
 
-            print(
-                "Could not open webcam."
-            )
+            print("Could not open webcam.")
 
             return False
 
         mp_face_mesh = mp.solutions.face_mesh
 
-        window_name = (
-            "GazeMate Basic Calibration"
-        )
+        window_name = "GazeMate Calibration"
 
         cv2.namedWindow(
             window_name,
@@ -71,53 +70,41 @@ class GazeCalibration:
             static_image_mode=False,
             max_num_faces=1,
             refine_landmarks=True,
-            min_detection_confidence=0.6,
-            min_tracking_confidence=0.6
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
         ) as face_mesh:
 
-            for point in self.points:
+            # ==================================================
+            # Process every calibration point
+            # ==================================================
+
+            for point_number, point in enumerate(self.points):
 
                 target_x = int(
-                    point[0]
-                    * self.screen_width
+                    point[0] * self.screen_width
                 )
 
                 target_y = int(
-                    point[1]
-                    * self.screen_height
+                    point[1] * self.screen_height
                 )
 
                 samples = []
 
-                start_time = time.time()
+                # --------------------------------------------------
+                # Stage 1:
+                # Give the user time to move their eyes to target
+                # --------------------------------------------------
 
-                # Shorter sampling time
-                while (
-                    time.time()
-                    - start_time
-                    < 2
-                ):
+                stabilization_start = time.time()
 
-                    success, frame = (
-                        camera.read()
-                    )
+                while time.time() - stabilization_start < 0.7:
+
+                    success, frame = camera.read()
 
                     if not success:
                         continue
 
-                    frame = cv2.flip(
-                        frame,
-                        1
-                    )
-
-                    rgb = cv2.cvtColor(
-                        frame,
-                        cv2.COLOR_BGR2RGB
-                    )
-
-                    results = (
-                        face_mesh.process(rgb)
-                    )
+                    frame = cv2.flip(frame, 1)
 
                     display = np.zeros(
                         (
@@ -131,7 +118,7 @@ class GazeCalibration:
                     cv2.circle(
                         display,
                         (target_x, target_y),
-                        15,
+                        18,
                         (0, 255, 255),
                         -1
                     )
@@ -146,12 +133,94 @@ class GazeCalibration:
                         2
                     )
 
+                    cv2.putText(
+                        display,
+                        f"Calibration point "
+                        f"{point_number + 1}/{len(self.points)}",
+                        (50, 105),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2
+                    )
+
+                    cv2.imshow(
+                        window_name,
+                        display
+                    )
+
+                    if cv2.waitKey(1) & 0xFF == 27:
+
+                        camera.release()
+                        cv2.destroyAllWindows()
+
+                        return False
+
+                # --------------------------------------------------
+                # Stage 2:
+                # Collect stable samples
+                # --------------------------------------------------
+
+                collection_start = time.time()
+
+                while time.time() - collection_start < 1.5:
+
+                    success, frame = camera.read()
+
+                    if not success:
+                        continue
+
+                    frame = cv2.flip(frame, 1)
+
+                    rgb = cv2.cvtColor(
+                        frame,
+                        cv2.COLOR_BGR2RGB
+                    )
+
+                    results = face_mesh.process(rgb)
+
+                    display = np.zeros(
+                        (
+                            self.screen_height,
+                            self.screen_width,
+                            3
+                        ),
+                        dtype=np.uint8
+                    )
+
+                    cv2.circle(
+                        display,
+                        (target_x, target_y),
+                        18,
+                        (0, 255, 255),
+                        -1
+                    )
+
+                    cv2.putText(
+                        display,
+                        "Keep looking at the circle",
+                        (50, 60),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        1,
+                        (255, 255, 255),
+                        2
+                    )
+
+                    cv2.putText(
+                        display,
+                        f"Calibration point "
+                        f"{point_number + 1}/{len(self.points)}",
+                        (50, 105),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.8,
+                        (255, 255, 255),
+                        2
+                    )
+
                     if results.multi_face_landmarks:
 
                         landmarks = (
-                            results
-                            .multi_face_landmarks[0]
-                            .landmark
+                            results.multi_face_landmarks[0].landmark
                         )
 
                         gaze = estimate_gaze(
@@ -162,96 +231,120 @@ class GazeCalibration:
 
                         if gaze is not None:
 
-                            # Reduce stored precision
-                            gaze_x = round(
-                                gaze[0],
-                                1
-                            )
+                            gaze_x, gaze_y = gaze
 
-                            gaze_y = round(
-                                gaze[1],
-                                1
-                            )
+                            # ------------------------------------------
+                            # Reject clearly invalid normalized values
+                            # ------------------------------------------
 
-                            samples.append(
-                                (gaze_x, gaze_y)
-                            )
+                            if (
+                                0.0 <= gaze_x <= 1.0
+                                and
+                                0.0 <= gaze_y <= 1.0
+                            ):
+
+                                samples.append(
+                                    (gaze_x, gaze_y)
+                                )
 
                     cv2.imshow(
                         window_name,
                         display
                     )
 
-                    if (
-                        cv2.waitKey(1)
-                        & 0xFF
-                        == 27
-                    ):
+                    if cv2.waitKey(1) & 0xFF == 27:
 
                         camera.release()
-
                         cv2.destroyAllWindows()
 
                         return False
 
-                if samples:
+                # ==================================================
+                # Use robust median instead of simple mean
+                # ==================================================
 
-                    average_x = np.mean(
-                        [
-                            sample[0]
-                            for sample in samples
-                        ]
+                if len(samples) >= 10:
+
+                    samples_array = np.array(
+                        samples,
+                        dtype=np.float64
                     )
 
-                    average_y = np.mean(
-                        [
-                            sample[1]
-                            for sample in samples
-                        ]
+                    median_x = np.median(
+                        samples_array[:, 0]
+                    )
+
+                    median_y = np.median(
+                        samples_array[:, 1]
                     )
 
                     gaze_samples.append(
-                        (
-                            average_x,
-                            average_y
-                        )
+                        (median_x, median_y)
                     )
 
-                    screen_points.append(
-                        point
+                    screen_points.append(point)
+
+                    print(
+                        f"Calibration point "
+                        f"{point_number + 1}: "
+                        f"gaze = "
+                        f"({median_x:.4f}, {median_y:.4f}), "
+                        f"samples = {len(samples)}"
+                    )
+
+                else:
+
+                    print(
+                        f"Calibration point "
+                        f"{point_number + 1} "
+                        f"did not collect enough samples."
                     )
 
         camera.release()
-
         cv2.destroyAllWindows()
 
-        if len(gaze_samples) < 3:
+        # ======================================================
+        # Verify calibration
+        # ======================================================
+
+        if len(gaze_samples) < 6:
 
             print(
-                "Calibration failed."
+                "Calibration failed: "
+                "not enough valid calibration points."
             )
 
             return False
 
+        # ======================================================
+        # Build affine mapping
+        #
+        # screen_x = a*x + b*y + c
+        # screen_y = d*x + e*y + f
+        # ======================================================
+
         gaze_matrix = np.array(
             [
-                [x, y, 1]
+                [x, y, 1.0]
                 for x, y in gaze_samples
-            ]
+            ],
+            dtype=np.float64
         )
 
         screen_x = np.array(
             [
                 point[0]
                 for point in screen_points
-            ]
+            ],
+            dtype=np.float64
         )
 
         screen_y = np.array(
             [
                 point[1]
                 for point in screen_points
-            ]
+            ],
+            dtype=np.float64
         )
 
         self.mapping_x = np.linalg.lstsq(
@@ -266,19 +359,52 @@ class GazeCalibration:
             rcond=None
         )[0]
 
+        # ======================================================
+        # Calculate calibration fitting error
+        # ======================================================
+
+        predicted_x = np.dot(
+            gaze_matrix,
+            self.mapping_x
+        )
+
+        predicted_y = np.dot(
+            gaze_matrix,
+            self.mapping_y
+        )
+
+        error_x = np.abs(
+            predicted_x - screen_x
+        )
+
+        error_y = np.abs(
+            predicted_y - screen_y
+        )
+
+        average_error = np.mean(
+            np.sqrt(
+                error_x ** 2 +
+                error_y ** 2
+            )
+        )
+
+        print(
+            f"Calibration fitting error: "
+            f"{average_error:.4f}"
+        )
+
+        # ======================================================
+        # Save calibration
+        # ======================================================
+
         os.makedirs(
             "calibration_data",
             exist_ok=True
         )
 
         data = {
-
-            "mapping_x":
-                self.mapping_x.tolist(),
-
-            "mapping_y":
-                self.mapping_y.tolist()
-
+            "mapping_x": self.mapping_x.tolist(),
+            "mapping_y": self.mapping_y.tolist()
         }
 
         with open(
@@ -292,9 +418,7 @@ class GazeCalibration:
                 indent=4
             )
 
-        print(
-            "Basic calibration completed."
-        )
+        print("Calibration completed.")
 
         return True
 
@@ -308,15 +432,15 @@ class GazeCalibration:
             self.mapping_x is None
             or self.mapping_y is None
         ):
-
             return None
 
         values = np.array(
             [
                 gaze_x,
                 gaze_y,
-                1
-            ]
+                1.0
+            ],
+            dtype=np.float64
         )
 
         screen_x = np.dot(
@@ -329,21 +453,18 @@ class GazeCalibration:
             self.mapping_y
         )
 
+        # ------------------------------------------------------
+        # Keep normalized screen coordinates inside the screen
+        # ------------------------------------------------------
+
         screen_x = max(
-            0,
-            min(1, screen_x)
+            0.0,
+            min(1.0, screen_x)
         )
 
         screen_y = max(
-            0,
-            min(1, screen_y)
+            0.0,
+            min(1.0, screen_y)
         )
 
-        return (
-            screen_x,
-            screen_y
-        )
-if __name__ == "__main__":
-    calibration = GazeCalibration()
-    result = calibration.calibrate()
-    print("Calibration result:", result)
+        return screen_x, screen_y

@@ -2,11 +2,14 @@ import cv2
 import mediapipe as mp
 
 
+# MediaPipe setup
+
 mp_face_mesh = mp.solutions.face_mesh
 mp_drawing = mp.solutions.drawing_utils
 
 
-# Eye landmark points
+# Eye landmark indices
+
 LEFT_EYE = [
     362, 382, 381, 380,
     374, 373, 390, 249,
@@ -22,21 +25,14 @@ RIGHT_EYE = [
 ]
 
 
-# Iris landmark points
-LEFT_IRIS = [
-    474, 475, 476, 477
-]
+# Iris landmark indices
 
-RIGHT_IRIS = [
-    469, 470, 471, 472
-]
+LEFT_IRIS = [474, 475, 476, 477]
+
+RIGHT_IRIS = [469, 470, 471, 472]
 
 
-def draw_eye_landmarks(
-    frame,
-    landmarks,
-    eye_indices
-):
+def draw_eye_landmarks(frame, landmarks, eye_indices):
 
     height, width, _ = frame.shape
 
@@ -46,22 +42,15 @@ def draw_eye_landmarks(
 
         landmark = landmarks.landmark[index]
 
-        x = int(
-            landmark.x * width
-        )
+        x = int(landmark.x * width)
+        y = int(landmark.y * height)
 
-        y = int(
-            landmark.y * height
-        )
-
-        points.append(
-            (x, y)
-        )
+        points.append((x, y))
 
         cv2.circle(
             frame,
             (x, y),
-            2,
+            3,
             (0, 255, 0),
             -1
         )
@@ -69,11 +58,7 @@ def draw_eye_landmarks(
     return points
 
 
-def draw_iris(
-    frame,
-    landmarks,
-    iris_indices
-):
+def draw_iris(frame, landmarks, iris_indices):
 
     height, width, _ = frame.shape
 
@@ -83,22 +68,15 @@ def draw_iris(
 
         landmark = landmarks.landmark[index]
 
-        x = int(
-            landmark.x * width
-        )
+        x = int(landmark.x * width)
+        y = int(landmark.y * height)
 
-        y = int(
-            landmark.y * height
-        )
-
-        points.append(
-            (x, y)
-        )
+        points.append((x, y))
 
         cv2.circle(
             frame,
             (x, y),
-            3,
+            4,
             (0, 0, 255),
             -1
         )
@@ -106,30 +84,19 @@ def draw_iris(
     return points
 
 
-def draw_eye_box(
-    frame,
-    points,
-    label
-):
+def draw_eye_box(frame, points, label):
 
     if not points:
         return
 
-    x_values = [
-        point[0]
-        for point in points
-    ]
+    x_values = [point[0] for point in points]
+    y_values = [point[1] for point in points]
 
-    y_values = [
-        point[1]
-        for point in points
-    ]
+    x1 = min(x_values) - 8
+    y1 = min(y_values) - 8
 
-    x1 = min(x_values) - 6
-    y1 = min(y_values) - 6
-
-    x2 = max(x_values) + 6
-    y2 = max(y_values) + 6
+    x2 = max(x_values) + 8
+    y2 = max(y_values) + 8
 
     cv2.rectangle(
         frame,
@@ -142,27 +109,26 @@ def draw_eye_box(
     cv2.putText(
         frame,
         label,
-        (x1, y1 - 8),
+        (x1, y1 - 10),
         cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
+        0.55,
         (255, 0, 0),
-        1
+        2
     )
 
 
-def detect_face_and_eyes(
-    frame,
-    face_mesh
-):
+def detect_face_and_eyes(frame, face_mesh):
+
+    # Convert BGR to RGB
 
     rgb_frame = cv2.cvtColor(
         frame,
         cv2.COLOR_BGR2RGB
     )
 
-    results = face_mesh.process(
-        rgb_frame
-    )
+    # Process frame
+
+    results = face_mesh.process(rgb_frame)
 
     face_detected = False
     left_eye_detected = False
@@ -177,8 +143,22 @@ def detect_face_and_eyes(
             results.multi_face_landmarks[0]
         )
 
-        # Draw only the face outline/landmarks
-        # needed for the basic demonstration.
+        # Draw face mesh
+
+        mp_drawing.draw_landmarks(
+            image=frame,
+            landmark_list=face_landmarks,
+            connections=mp_face_mesh.FACEMESH_TESSELATION,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing.DrawingSpec(
+                color=(180, 180, 180),
+                thickness=1,
+                circle_radius=1
+            )
+        )
+
+        # Left eye
+
         left_eye_points = draw_eye_landmarks(
             frame,
             face_landmarks,
@@ -193,6 +173,8 @@ def detect_face_and_eyes(
             left_eye_points,
             "LEFT EYE"
         )
+
+        # Right eye
 
         right_eye_points = draw_eye_landmarks(
             frame,
@@ -209,11 +191,15 @@ def detect_face_and_eyes(
             "RIGHT EYE"
         )
 
+        # Left iris
+
         left_iris_points = draw_iris(
             frame,
             face_landmarks,
             LEFT_IRIS
         )
+
+        # Right iris
 
         right_iris_points = draw_iris(
             frame,
@@ -221,11 +207,7 @@ def detect_face_and_eyes(
             RIGHT_IRIS
         )
 
-        if (
-            left_iris_points
-            and right_iris_points
-        ):
-
+        if left_iris_points and right_iris_points:
             iris_detected = True
 
     return (
@@ -246,41 +228,29 @@ if __name__ == "__main__":
 
     if not camera.isOpened():
 
-        print(
-            "ERROR: Could not open webcam."
-        )
+        print("ERROR: Could not open webcam.")
 
     else:
 
-        print(
-            "GazeMate - Basic Face & Eye Detection"
-        )
-
-        print(
-            "Press Q to exit."
-        )
+        print("GazeMate - Integrated Face & Eye Detection")
+        print("Press Q to exit.")
 
         with mp_face_mesh.FaceMesh(
             static_image_mode=False,
             max_num_faces=1,
             refine_landmarks=True,
-            min_detection_confidence=0.6,
-            min_tracking_confidence=0.6
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
         ) as face_mesh:
 
             while True:
 
-                success, frame = (
-                    camera.read()
-                )
+                success, frame = camera.read()
 
                 if not success:
                     break
 
-                frame = cv2.flip(
-                    frame,
-                    1
-                )
+                frame = cv2.flip(frame, 1)
 
                 (
                     frame,
@@ -295,18 +265,12 @@ if __name__ == "__main__":
                 )
 
                 cv2.imshow(
-                    "GazeMate Basic Eye Detection",
+                    "GazeMate - Integrated Face & Eye Detection",
                     frame
                 )
 
-                if (
-                    cv2.waitKey(1)
-                    & 0xFF
-                    == ord("q")
-                ):
-
+                if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
         camera.release()
-
         cv2.destroyAllWindows()
